@@ -1,0 +1,4 @@
+aiocoap
+web3
+rpi.gpio
+smbus2
