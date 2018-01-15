@@ -183,3 +183,19 @@ You will need to start the `interface.py` script with the account
 address and contract address from earlier step:
 
 	$ ./interface.py 0x...contract... 0x...account...
+
+## Test
+
+There's `contract.py` script which can be used to query temperature
+and change actuation from the command line. To query temperature
+you'll need only the contract address:
+
+	$ ./contract.py 0x...contract...
+
+To change the actuation value you will also need an account (with
+enough wei) and `--set-actuation` argument:
+
+	$ ./contract.py 0x...contract... 0x...account... --set-actuation 0
+
+The actuation value in the controller is (at least in these examples)
+between 0 and 100.
