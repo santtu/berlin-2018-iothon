@@ -5,37 +5,42 @@ import time
 import asyncio
 from aiocoap import Context, resource, Message, CHANGED
 import struct
+import subprocess
 from contextlib import contextmanager
 try:
     import smbus2
     have_smbus2 = True
-except:
+except ModuleNotFoundError:
     have_smbus2 = False
 try:
     import RPi.GPIO as GPIO
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
     have_gpio = True
-except:
+except ModuleNotFoundError:
     have_gpio = False
+
+
+def run(*args):
+    subprocess.run(args, check=True)
 
 
 # This has been set up with Adafruit HTU21D-F temperature and humidity
 # sensor for temperature measurements, and for SG90 servo.
-
 class Hardware(object):
     def __init__(self,
                  i2c_bus=1,
                  sensor_addr=0x40,
                  led_pin=17,
                  servo_pin=18, servo_left=2, servo_right=9.5):
-        assert have_smbus2, "hardware interface requires smbus2 to be installed"
-        assert have_gpio, "hardware interface requires RPi.GPIO to be installed"
+        assert have_smbus2, \
+            "hardware interface requires smbus2 to be installed"
+        assert have_gpio, \
+            "hardware interface requires RPi.GPIO to be installed"
 
         self.bus = smbus2.SMBus(i2c_bus)
         self.addr = sensor_addr
         self.led_pin = led_pin
-        self.pwm = None
         self.servo_pin = servo_pin
 
         if self.led_pin is not None:
@@ -43,14 +48,12 @@ class Hardware(object):
             GPIO.output(self.led_pin, GPIO.LOW)
 
         if self.servo_pin is not None:
-            GPIO.setup(servo_pin, GPIO.OUT)
-            self.pwm = GPIO.PWM(servo_pin, 50)
-
-            self.servo_left = servo_left
-            self.servo_range = servo_right - servo_left
+            run("gpio", "-g", "mode", str(self.servo_pin), "pwm")
+            run("gpio", "pwm-ms")
+            run("gpio", "pwmc", "192")
+            run("gpio", "pwmr", "2000")
 
             # Run the servo from 0% to 100% to 50% and then start
-            self.pwm.start(servo_left)
             self.set_actuator(0)
             time.sleep(2)
             self.set_actuator(100)
@@ -84,14 +87,13 @@ class Hardware(object):
             with self.led():
                 # ensure range is 0 to 100 and normalize to 0 to 1
                 value = float(max(0, min(100, value))) / 100.0
-                cycle = self.servo_left + value * self.servo_range
-                self.pwm.ChangeDutyCycle(cycle)
+                cycle = value * 160 + 50
+                run("gpio", "-g", "pwm", str(self.servo_pin), str(int(cycle)))
 
 
 class Fake(object):
     def get_temperature(self):
         return random.gauss(293.15, 2.5)
-        #return 293.15
 
     def set_actuator(self, value):
         print("[fake] Actuator updated:", value)
@@ -106,6 +108,7 @@ class TemperatureResource(resource.Resource):
         temp = "{:.2f}".format(self.hw.get_temperature())
         print("[controller] Read temperature:", temp)
         return Message(payload=temp.encode())
+
 
 class ActuatorResource(resource.Resource):
     def __init__(self, hw):
@@ -124,7 +127,8 @@ def main():
     parser.add_argument('--fake', dest='real', action='store_false')
     parser.add_argument('--real', dest='real', action='store_true')
 
-    parser.add_argument('--coap-server', '--server', default="coap://localhost")
+    parser.add_argument('--coap-server', '--server',
+                        default="coap://localhost")
 
     parser.add_argument('--temperature-resource', default='temperature',
                         metavar='RESOURCE')

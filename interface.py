@@ -28,8 +28,8 @@ async def main():
     parser.add_argument('--abi-file', default='device_sol_Device.abi',
                         metavar='FILE')
 
-    parser.add_argument('--update-interval', type=int, default=10)
-    parser.add_argument('--update-accuracy', type=int, default=2)
+    parser.add_argument('--update-interval', type=int, default=5)
+    parser.add_argument('--update-accuracy', type=int, default=1)
 
     args = parser.parse_args()
 
@@ -58,11 +58,13 @@ async def main():
     send_actuation(old_actuation)
 
     # Retrieve current temperature
-    old_temp = device.call().get()
+    old_temp = device.call().get() / 100.0
 
     while True:
         temp = await get_temperature()
-        if round(temp, args.update_accuracy) != round(old_temp, args.update_accuracy):
+
+        if ((round(temp, args.update_accuracy) !=
+             round(old_temp, args.update_accuracy))):
             print("[interface] Updating temperature:", temp)
             temp_value = int(100 * (float(temp) + 0.005))
             web3.personal.unlockAccount(args.account, args.password)

@@ -36,10 +36,13 @@ def main():
     print("Current actuation:", act)
 
     if args.actuation is not None:
-        assert args.account is not None, "ACCOUNT may not be empty if --set is used"
+        assert args.account is not None, \
+            "ACCOUNT may not be empty if --set is used"
         web3.personal.unlockAccount(args.account, args.password)
-        device.transact({"from": args.account, "value": args.amount}).actuate(args.actuation)
+        device.transact({"from": args.account,
+                         "value": args.amount}).actuate(args.actuation)
         print("Updated actuation to:", args.actuation)
+
 
 if __name__ == '__main__':
     main()
