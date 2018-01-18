@@ -49,8 +49,10 @@ async def main():
             code=GET,
             uri=urljoin(args.coap_server, args.temperature_resource))).response
 
-        temp = float(response.payload.decode())
-        return temp
+        try:
+            return float(response.payload.decode())
+        except ValueError:
+            return None
 
     # Look up initial value and publish that, this handles restarts
     # without requiring a new actuation transaction
@@ -63,7 +65,8 @@ async def main():
     while True:
         temp = await get_temperature()
 
-        if ((round(temp, args.update_accuracy) !=
+        if (temp is not None and
+            (round(temp, args.update_accuracy) !=
              round(old_temp, args.update_accuracy))):
             print("[interface] Updating temperature:", temp)
             temp_value = int(100 * (float(temp) + 0.005))
