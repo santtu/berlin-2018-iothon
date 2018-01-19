@@ -199,3 +199,27 @@ enough wei) and `--set-actuation` argument:
 
 The actuation value in the controller is (at least in these examples)
 between 0 and 100.
+
+# Using Mist and Remix with a custom network
+
+Just as a quick note, if you want to use Mist/Remix with the custom
+network you will need to run geth on the desktop machine. The setup is
+almost the same as above (init → account new → console) except you
+will need to specify an IPC endpoint and use a different port
+(otherwise you can get a conflict from mist's default geth). Add the
+following options for geth:
+
+	geth --datadir <datadir> --networkid 2018 --bootnodes <your mining enode> --rpc --ipcpath /tmp/geth.ipc --port 30304 console
+
+(you probably want to mine some ethers, so run `miner.start()` on the
+console, and after a few successful blocks you can stop it with
+`miner.stop()`).
+
+Then you'll need to locate your Mist binary and run it manually with
+correct options. For example, on OSX this would be:
+
+	/Applications/Mist.app/Contents/MacOS/Mist --network 2018 --rpc /tmp/geth.ipc
+
+This should now result with a Mist user interface connected to your
+private network. You can then use the Remix IDE and run contracts and
+trasactions on the test network in the "Injected Web3" environment.
