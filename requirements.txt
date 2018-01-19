@@ -1,4 +1,4 @@
-aiocoap
+-e git://github.com/chrysn/aiocoap.git@bc994364b9579daf14b8fa80ff4cbbef8705e115#egg=aiocoap
 web3
-rpi.gpio
 smbus2
+rpi.gpio

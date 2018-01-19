@@ -156,6 +156,10 @@ Then you can test the fake hardware interface with:
 
 	$ ./controller.py --fake
 
+(Note: On OS X, you might need to use
+`AIOCOAP_CLIENT_TRANSPORT=simple6 ./controller.py --fake
+--server-address 127.0.0.1` instead.)
+
 If you install `libcoap-1-0-bin` with the `coap-client` binary, you
 can test the controller:
 

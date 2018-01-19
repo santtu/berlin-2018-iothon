@@ -3,7 +3,7 @@ import random
 import argparse
 import time
 import asyncio
-from aiocoap import Context, resource, Message, CHANGED
+from aiocoap import Context, resource, Message, CHANGED, COAP_PORT
 import struct
 import subprocess
 from contextlib import contextmanager
@@ -127,8 +127,9 @@ def main():
     parser.add_argument('--fake', dest='real', action='store_false')
     parser.add_argument('--real', dest='real', action='store_true')
 
-    parser.add_argument('--coap-server', '--server',
-                        default="coap://localhost")
+    parser.add_argument('--server-address', default='::', metavar='HOST')
+    parser.add_argument('--server-port', type=int,
+                        default=COAP_PORT, metavar='PORT')
 
     parser.add_argument('--temperature-resource', default='temperature',
                         metavar='RESOURCE')
@@ -152,7 +153,8 @@ def main():
     root.add_resource((args.temperature_resource,), TemperatureResource(hw))
     root.add_resource((args.actuator_resource,), ActuatorResource(hw))
 
-    asyncio.Task(Context.create_server_context(root))
+    asyncio.Task(Context.create_server_context(
+        root, bind=(args.server_address, args.server_port)))
     asyncio.get_event_loop().run_forever()
 
 
