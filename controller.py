@@ -30,7 +30,8 @@ def run(*args):
 class Hardware(object):
     def __init__(self,
                  i2c_bus=1,
-                 sensor_addr=0x40,
+                 htu21d_addr=0x40,
+                 max44009_addr=0x4a,
                  led_pin=17,
                  servo_pin=18, servo_left=2, servo_right=9.5):
         assert have_smbus2, \
@@ -39,7 +40,8 @@ class Hardware(object):
             "hardware interface requires RPi.GPIO to be installed"
 
         self.bus = smbus2.SMBus(i2c_bus)
-        self.addr = sensor_addr
+        self.temp_addr = htu21d_addr
+        self.light_addr = max44009_addr
         self.led_pin = led_pin
         self.servo_pin = servo_pin
 
@@ -60,6 +62,11 @@ class Hardware(object):
             time.sleep(2)
             self.set_actuator(50)
 
+        # Initialize light sensor
+        if self.light_addr is not None:
+            self.bus.write_byte_data(self.light_addr, 0x02, 0x40)
+
+
     @contextmanager
     def led(self):
         if self.led_pin is not None:
@@ -68,11 +75,25 @@ class Hardware(object):
         if self.led_pin is not None:
             GPIO.output(self.led_pin, GPIO.LOW)
 
-    def get_temperature(self):
+    def get_light(self):
+        if self.light_addr is None:
+            return -1
+
         with self.led():
-            self.bus.write_byte(self.addr, 0xe3)
+            data = self.bus.read_i2c_block_data(self.light_addr, 0x03, 2)
+            exponent = (data[0] & 0xf0) >> 4
+            mantissa = ((data[0] & 0x0f) << 4) | (data[1] & 0x0f)
+            luminance = ((2 ** exponent) * mantissa) * 0.045
+            return luminance
+
+    def get_temperature(self):
+        if self.temp_addr is None:
+            return -1
+
+        with self.led():
+            self.bus.write_byte(self.temp_addr, 0xe3)
             time.sleep(0.055)
-            msg = smbus2.i2c_msg.read(self.addr, 3)
+            msg = smbus2.i2c_msg.read(self.temp_addr, 3)
             data = self.bus.i2c_rdwr(msg)
             # There's a CRC which we ignore completely, in a real
             # implementation you'd want to verify that
@@ -95,8 +116,22 @@ class Fake(object):
     def get_temperature(self):
         return random.gauss(293.15, 2.5)
 
+    def get_light(self):
+        return random.uniform(0.0, 1.0)
+
     def set_actuator(self, value):
         print("[fake] Actuator updated:", value)
+
+
+class LightResource(resource.Resource):
+    def __init__(self, hw):
+        super().__init__()
+        self.hw = hw
+
+    async def render_get(self, request):
+        light = "{:.2f}".format(self.hw.get_light())
+        print("[controller] Read light:", light)
+        return Message(payload=light.encode())
 
 
 class TemperatureResource(resource.Resource):
@@ -133,6 +168,8 @@ def main():
 
     parser.add_argument('--temperature-resource', default='temperature',
                         metavar='RESOURCE')
+    parser.add_argument('--light-resource', default='light',
+                        metavar='RESOURCE')
     parser.add_argument('--actuator-resource', default='actuator',
                         metavar='RESOURCE')
 
@@ -151,6 +188,7 @@ def main():
     root = resource.Site()
 
     root.add_resource((args.temperature_resource,), TemperatureResource(hw))
+    root.add_resource((args.light_resource,), LightResource(hw))
     root.add_resource((args.actuator_resource,), ActuatorResource(hw))
 
     asyncio.Task(Context.create_server_context(
